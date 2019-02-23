@@ -8,8 +8,9 @@ from rest_framework import serializers
 from .models import Image
 
 
-class SCImageSerializer(serializers.ModelSerializer):
-    """查增"""
+class SCUImageSerializer(serializers.ModelSerializer):
+    """查增修"""
+    last_open_time = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
 
     class Meta:
         model = Image

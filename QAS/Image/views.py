@@ -9,7 +9,7 @@ import json
 from QAS.settings.dev import DATA_SAMBA_PREX
 
 from Image.models import Image
-from Image.serializers import SCImageSerializer
+from Image.serializers import SCUImageSerializer
 
 import logging
 logger = logging.getLogger('qas')
@@ -21,10 +21,10 @@ class SImageView(ListAPIView):
     """
 
     # 指定查询集, 获取没有逻辑删除的数据, 返回最近打开的前6条记录
-    queryset = Image.objects.filter(is_delete=False).order_by('-last_open_time')[:10]
+    queryset = Image.objects.filter(is_delete=False).order_by('-last_open_time')[:20]
 
     # 指定序列化器
-    serializer_class = SCImageSerializer
+    serializer_class = SCUImageSerializer
 
 
 class CImageView(APIView):
@@ -72,11 +72,11 @@ class CImageView(APIView):
             )
 
             # 序列化返回
-            serialize = SCImageSerializer(image)
+            serialize = SCUImageSerializer(image)
             return Response(status=status.HTTP_201_CREATED, data={'result': serialize.data})
 
 
-class SDImageView(APIView):
+class SUDImageView(APIView):
     """
     get: 查询一条大图数据
     delete: 逻辑删除一条大图数据
@@ -90,7 +90,29 @@ class SDImageView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
         # 序列化返回
-        serializer = SCImageSerializer(image)
+        serializer = SCUImageSerializer(image)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+
+        # 获取最新的文件打开时间
+        lastest_open_time = request.data.get('last_open_time', None)
+
+        if not lastest_open_time:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
+
+        # 根据大图id, 查询数据库对象
+        try:
+            image = Image.objects.get(id=pk, is_delete=False)
+        except Image.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
+
+        # 更新文件打开时间
+        image.last_open_time = lastest_open_time
+        image.save()
+
+        # 序列化返回
+        serializer = SCUImageSerializer(image)
         return Response(serializer.data)
 
     def delete(self, request, pk):

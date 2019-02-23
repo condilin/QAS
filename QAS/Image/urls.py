@@ -8,7 +8,7 @@ from django.conf.urls import url
 from . import views
 
 urlpatterns = [
-    url(r'^images/(?P<pk>\d+)/$', views.SDImageView.as_view()),  # 查询/删除
+    url(r'^images/(?P<pk>\d+)/$', views.SUDImageView.as_view()),  # 查询/修改/删除
     url(r'^images/add/$', views.CImageView.as_view()),  # 新增一条记录
     url(r'^images/$', views.SImageView.as_view()),  # 查询列表
 ]
