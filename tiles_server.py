@@ -142,6 +142,38 @@ async def tiles_png(request, image_id, z, x, y, format):
                                  body_bytes=image_bytes, content_type='image/png')
 
 
+@app.route("/tiles/screenshots/<image_id>/<x:int>_<y:int>_<w:int>_<h:int>.<format:[A-z]+>")
+async def cell_image_request(request, image_id, x, y, w, h, format):
+    """
+    get cell image
+    :param request:
+    :param image_id: id of tiff image
+    :param x: coordinate-x
+    :param y: coordinate-y
+    :param w: image width
+    :param h: image height
+    :return:
+    """
+    print('==============> in')
+    slide = get_slide(image_id, get_path(image_id, request))
+
+    tile_image = slide.read_region((x, y), 0, (w, h))
+
+    bio = BytesIO()
+
+    tile_image.save(bio, 'png')
+    image_bytes = bio.getvalue()
+
+    headers = {}
+    headers.setdefault(
+        'Content-Disposition',
+        'attachment; image_id="{}"'.format(os.path.basename(image_id))
+    )
+
+    return response.HTTPResponse(status=200, headers=headers,
+                                 body_bytes=image_bytes, content_type='image/png')
+
+
 if __name__ == '__main__':
 
     app.run(host='192.168.2.179', port=5010, debug=True)
