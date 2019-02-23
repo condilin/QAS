@@ -18,20 +18,20 @@ class SCUDMarkView(APIView):
     get: 查询一张大图中所有的细胞轮廓坐标列表
     post: 新增一条细胞轮廓坐标记录
     patch: 修改一条细胞轮廓坐标记录
-    delete: 物理删除一条细胞轮廓坐标记录
+    delete: 删除一条细胞轮廓坐标记录
     """
 
-    def get(self, request, img_id):
+    def get(self, request, pk):
 
         # 根据大图id, 查询数据库对象
         try:
             # 获取大图没有逻辑删除的数据
-            image = Image.objects.get(id=img_id, is_delete=False)
+            image = Image.objects.get(id=pk, is_delete=False)
         except Image.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
         # ---------- 定义返回所有区域的结果列表 ---------- #
-        result_dict = {'id': img_id, 'result': []}
+        result_dict = {'id': pk, 'result': []}
 
         # ---------- 返回该大图下参考对象的平均灰度值 ---------- #
         # 定义列表存储所有参考对象的灰度值
@@ -93,11 +93,11 @@ class SCUDMarkView(APIView):
 
         return Response(status=status.HTTP_200_OK, data=result_dict)
 
-    def post(self, request, img_id):
+    def post(self, request, pk):
 
         # 获取请求体中的表单数据并在RegionCoord表创建记录
         region_obj = RegionCoord.objects.create(
-            image=Image.objects.get(id=img_id),
+            image=Image.objects.get(id=pk),
             is_reference_obj=request.data['is_reference_obj'],
             x=request.data['x'], y=request.data['y'], w=request.data['w'], h=request.data['h']
         )
@@ -116,13 +116,13 @@ class SCUDMarkView(APIView):
             )
 
             # 将大图id, 区域坐标id, 轮廓id(自身的id)一起返回
-            contour['img_id'] = img_id
+            contour['img_id'] = pk
             contour['region_id'] = region_obj.id
             contour['contours_id'] = contour_obj.id
 
         return Response(status=status.HTTP_201_CREATED, data=contours_info)
 
-    def patch(self, request, img_id):
+    def patch(self, request, pk):
 
         # 获取轮廓id,区域id以及是否做为参考对象
         contours_id = request.data.get('contours_id', None)
@@ -173,7 +173,7 @@ class SCUDMarkView(APIView):
                     cells_contours_gray=contour['cells_contours_gray'],
                 )
                 # 将大图id, 区域坐标id, 轮廓id(自身的id)一起返回
-                contour['img_id'] = img_id
+                contour['img_id'] = pk
                 contour['region_id'] = region.id
                 contour['contours_id'] = contour_obj.id
 
@@ -215,73 +215,30 @@ class SCUDMarkView(APIView):
             }
             return Response(status=status.HTTP_200_OK, data=res)
 
-    def delete(self, request, img_id):
+    def delete(self, request, pk):
 
-        # ------------------------- 删除整张大图数据 ------------------------- #
-        # 根据大图id, 查询数据库对象
+        # 根据轮廓id, 查询数据库对象
         try:
-            image = Image.objects.get(id=img_id, is_delete=False)
-        except Image.DoesNotExist:
+            contours = ContoursMark.objects.get(id=pk, is_delete=False)
+        except ContoursMark.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
-        # 获取区域id和轮廓id
-        region_id = request.data.get('region_id', None)
-        contours_id = request.data.get('contours_id', None)
+        try:
+            # 数据库中物理删除
+            contours.delete()
+        except Exception as e:
+            logger.warning(e)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
 
-        # 如果没有带region_id和region_id, 则说明要删除整张大图
-        if not region_id and not contours_id:
-            try:
-                # 数据库中物理删除, 同时级联删除其它外键关联
-                # image.delete()
-                image.is_delete = True
-                image.save()
-            except Exception as e:
-                logger.warning(e)
-                return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
-
-            return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除整张大图成功！'})
-
-        # ------------------------- 删除区域数据或轮廓数据 ------------------------- #
-        # 如果带上region_id和region_id其中一个, 则对应删除其中一个
-        if region_id:
-            # 根据区域id, 查询数据库对象
-            try:
-                region = RegionCoord.objects.get(id=region_id, is_delete=False)
-            except RegionCoord.DoesNotExist:
-                return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
-
-            try:
-                # 数据库中物理删除, 同时级联删除其它外键关联
-                region.delete()
-            except Exception as e:
-                logger.warning(e)
-                return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
-
-            return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除整个区域成功！'})
-
-        else:
-            # 根据轮廓id, 查询数据库对象
-            try:
-                contours = ContoursMark.objects.get(id=contours_id, is_delete=False)
-            except ContoursMark.DoesNotExist:
-                return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
-
-            try:
-                # 数据库中物理删除
-                contours.delete()
-            except Exception as e:
-                logger.warning(e)
-                return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
-
-            return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除细胞核轮廓成功！'})
+        return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除细胞核轮廓成功！'})
 
 
 class CUReferenceView(APIView):
     """
-    patch: 修改是否为参考对象
+    patch: 设置或修改是否为参考对象
     """
 
-    def patch(self, request, region_id):
+    def patch(self, request, pk):
 
         # 获取参考对象设置值
         is_reference_obj = request.data.get('is_reference_obj', None)
@@ -291,7 +248,7 @@ class CUReferenceView(APIView):
 
         # 根据轮廓id, 查询数据库对象
         try:
-            region = RegionCoord.objects.get(id=region_id, is_delete=False)
+            region = RegionCoord.objects.get(id=pk, is_delete=False)
         except ContoursMark.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
@@ -300,5 +257,28 @@ class CUReferenceView(APIView):
         region.save()
 
         return Response(status=status.HTTP_200_OK, data={
-            'region_id': region_id, 'is_reference_obj': is_reference_obj
+            'region_id': pk, 'is_reference_obj': is_reference_obj
         })
+
+
+class DRegionView(APIView):
+    """
+    delete: 物理删除一条细胞轮廓坐标记录
+    """
+
+    def delete(self, request, pk):
+
+        # 根据区域id, 查询数据库对象
+        try:
+            region = RegionCoord.objects.get(id=pk, is_delete=False)
+        except RegionCoord.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
+
+        try:
+            # 数据库中物理删除, 同时级联删除其它外键关联
+            region.delete()
+        except Exception as e:
+            logger.warning(e)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
+
+        return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除整个区域成功！'})

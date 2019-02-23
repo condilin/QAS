@@ -8,6 +8,7 @@ from django.conf.urls import url
 from . import views
 
 urlpatterns = [
-    url(r'^marks/references/(?P<region_id>\d+)/$', views.CUReferenceView.as_view()),  # 设置/修改参考对象
-    url(r'^marks/(?P<img_id>\d+)/$', views.SCUDMarkView.as_view()),  # 查询/新增/修改/删除一条记录
+    url(r'^marks/(?P<pk>\d+)/$', views.SCUDMarkView.as_view()),  # 查询/新增/修改/删除一条记录
+    url(r'^marks/references/(?P<pk>\d+)/$', views.CUReferenceView.as_view()),  # 设置/修改参考对象
+    url(r'^regions/(?P<pk>\d+)/$', views.DRegionView.as_view()),  # 删除区域中的一条记录
 ]
