@@ -115,10 +115,11 @@ class SCUDMarkView(APIView):
                 cells_contours_gray=contour['cells_contours_gray'],
             )
 
-            # 将大图id, 区域坐标id, 轮廓id(自身的id)一起返回
+            # 将大图id, 区域坐标id, 轮廓id(自身的id), 是否为参考对象一起返回
             contour['img_id'] = pk
             contour['region_id'] = region_obj.id
             contour['contours_id'] = contour_obj.id
+            contour['is_reference_obj'] = request.data['is_reference_obj']
 
         return Response(status=status.HTTP_201_CREATED, data=contours_info)
 
@@ -145,15 +146,19 @@ class SCUDMarkView(APIView):
                 return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
             # 获取用户所选区域数据
-            # is_reference_obj = request.data['is_reference_obj'],
             x, y, w, h = request.data['x'], request.data['y'], request.data['w'], request.data['h']
+            # 不知为何使用request.data['is_reference_obj']获取到的数据是tuple类型:(0, ), 从而结果保存不到数据库
+            # 而使用request.data.get('is_reference_obj', None), 则获取到的数据类型为int, 0
+            is_reference_obj = request.data.get('is_reference_obj', None)
+            if not contours_id and not region_id:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
             # 修改并保存数据
             region.x = x
             region.y = y
             region.w = w
             region.h = h
-            # region.is_reference_obj = is_reference_obj
+            region.is_reference_obj = is_reference_obj
             region.save()
 
             # 删除该区域中原来识别的轮廓
@@ -172,10 +177,11 @@ class SCUDMarkView(APIView):
                     cells_contours_perimeter=contour['cells_contours_perimeter'],
                     cells_contours_gray=contour['cells_contours_gray'],
                 )
-                # 将大图id, 区域坐标id, 轮廓id(自身的id)一起返回
+                # 将大图id, 区域坐标id, 轮廓id(自身的id), 是否为参考对象一起返回
                 contour['img_id'] = pk
                 contour['region_id'] = region.id
                 contour['contours_id'] = contour_obj.id
+                contour['is_reference_obj'] = region.is_reference_obj
 
             return Response(status=status.HTTP_201_CREATED, data=contours_info)
 
