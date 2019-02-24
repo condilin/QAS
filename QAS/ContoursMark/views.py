@@ -256,8 +256,25 @@ class CUReferenceView(APIView):
         region.is_reference_obj = is_reference_obj
         region.save()
 
+        # ----- 返回参考对象最新的灰度平均值 ------ #
+        # 定义列表存储所有参考对象的灰度值
+        gray_value_list = []
+        # 通过region_id反向查询大图id
+        image_id = region.image.id
+        # 查询该大图所有的参考对象
+        all_reference = Image.objects.get(id=image_id).regions.filter(is_reference_obj=True)
+        # 判断该大图是否有参考对象
+        if all_reference:
+            # 循环所有参考对象, 将灰度值添加到列表
+            for obj in all_reference:
+                gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+            # 计算灰度值平均值
+            gray_avg = round(np.average(gray_value_list), 2)
+        else:
+            gray_avg = None
+
         return Response(status=status.HTTP_200_OK, data={
-            'region_id': pk, 'is_reference_obj': is_reference_obj
+            'region_id': pk, 'is_reference_obj': is_reference_obj, 'gray_avg': gray_avg
         })
 
 
