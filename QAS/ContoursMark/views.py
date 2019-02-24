@@ -248,8 +248,7 @@ class CUReferenceView(APIView):
 
         # 获取参考对象设置值
         is_reference_obj = request.data.get('is_reference_obj', None)
-
-        if not is_reference_obj:
+        if is_reference_obj is None:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
         # 根据轮廓id, 查询数据库对象
