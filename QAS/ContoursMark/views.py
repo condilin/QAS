@@ -121,7 +121,27 @@ class SCUDMarkView(APIView):
             contour['contours_id'] = contour_obj.id
             contour['is_reference_obj'] = request.data['is_reference_obj']
 
-        return Response(status=status.HTTP_201_CREATED, data=contours_info)
+        # ----- 返回参考对象最新的灰度平均值 ------ #
+        if request.data['is_reference_obj'] == 1:
+            # 定义列表存储所有参考对象的灰度值
+            gray_value_list = []
+            # 直接查询该大图所有的参考对象
+            all_reference = Image.objects.get(id=pk).regions.filter(is_reference_obj=True)
+            # 判断该大图是否有参考对象
+            if all_reference:
+                # 循环所有参考对象, 将灰度值添加到列表
+                for obj in all_reference:
+                    gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+                # 计算灰度值平均值
+                gray_avg = round(np.average(gray_value_list), 2)
+            else:
+                gray_avg = None
+        else:
+            gray_avg = None
+
+        # 最终返回结果
+        return Response(status=status.HTTP_201_CREATED,
+                        data={'contours_info': contours_info, 'gray_avg': gray_avg})
 
     def patch(self, request, pk):
 
@@ -183,7 +203,7 @@ class SCUDMarkView(APIView):
                 contour['contours_id'] = contour_obj.id
                 contour['is_reference_obj'] = region.is_reference_obj
 
-            return Response(status=status.HTTP_201_CREATED, data=contours_info)
+            return Response(status=status.HTTP_200_OK, data=contours_info)
 
         # ------------------------- 修改轮廓数据 ------------------------- #
         # 只修改轮廓(只传contours_id)
@@ -241,7 +261,7 @@ class SCUDMarkView(APIView):
 
 class CUReferenceView(APIView):
     """
-    patch: 设置或修改是否为参考对象
+    patch: 设置区域或修改区域是否为参考对象
     """
 
     def patch(self, request, pk):
@@ -285,7 +305,7 @@ class CUReferenceView(APIView):
 
 class DRegionView(APIView):
     """
-    delete: 物理删除一条细胞轮廓坐标记录
+    delete: 物理删除一条区域坐标记录
     """
 
     def delete(self, request, pk):
@@ -303,4 +323,25 @@ class DRegionView(APIView):
             logger.warning(e)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
 
-        return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除整个区域成功！'})
+        # ----- 返回参考对象最新的灰度平均值 ------ #
+        if region.is_reference_obj == 1:
+            # 定义列表存储所有参考对象的灰度值
+            gray_value_list = []
+            # 通过region_id反向查询大图id
+            image_id = region.image.id
+            # 查询该大图所有的参考对象
+            all_reference = Image.objects.get(id=image_id).regions.filter(is_reference_obj=True)
+            # 判断该大图是否有参考对象
+            if all_reference:
+                # 循环所有参考对象, 将灰度值添加到列表
+                for obj in all_reference:
+                    gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+                # 计算灰度值平均值
+                gray_avg = round(np.average(gray_value_list), 2)
+            else:
+                gray_avg = None
+        else:
+            gray_avg = None
+
+        return Response(status=status.HTTP_200_OK,
+                        data={'msg': '删除整个区域成功！', 'gray_avg': gray_avg})
