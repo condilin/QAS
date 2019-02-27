@@ -79,6 +79,8 @@ INSTALLED_APPS = [
     # 自己的应用
     'Image',
     'ContoursMark',
+    'Patient',
+    'Case',
 ]
 
 MIDDLEWARE = [
@@ -225,7 +227,7 @@ LOGGING = {
         'file': {  # 向文件中输出项目日志
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/dms.log'),  # 日志文件的位置
+            'filename': os.path.join(BASE_DIR, 'logs/qas.log'),  # 日志文件的位置
             'maxBytes': 300 * 1024 * 1024,
             'backupCount': 10,
             'formatter': 'verbose'
