@@ -26,4 +26,6 @@ urlpatterns = [
     url(r'^api/v1/docs/', schema_view),  # 接口文档
     url(r'^api/v1/', include('Image.urls')),  # 大图信息
     url(r'^api/v1/', include('ContoursMark.urls')),  # 细胞轮廓标记信息
+    url(r'^api/v1/', include('Patient.urls')),  # 病人信息
+    url(r'^api/v1/', include('Case.urls')),  # 病例信息
 ]
