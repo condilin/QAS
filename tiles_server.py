@@ -2,10 +2,13 @@
 
 import os, sys
 import requests
+import logging
 from io import BytesIO
+
 from sanic import Sanic, response
 from sanic_cors import CORS
 from sanic.response import text, json
+
 from Services.Aslide.aslide import Aslide
 from Services.Aslide.deepzoom import ADeepZoomGenerator
 
@@ -21,20 +24,39 @@ QAS_HOST = '192.168.2.179:8010'
 TIF_PATH_PREX = '/run/user/1000/gvfs/smb-share:server=192.168.2.221,share='
 
 
-def get_path(image_id, request):
-    if image_id in tif_path_cache:
-        tif_path = tif_path_cache[image_id]
-    else:
-        tiff_url = 'http://%s/api/v1/images/%s/' % (QAS_HOST, image_id)
-        response = requests.get(tiff_url)
+# 配置日志/初始化变量
+class ConfigLog(object):
+    def __init__(self):
+        # 日志输出的位置
+        self.log_name = '/home/kyfq/MyPython/PycharmProjects/qas/QAS/QAS/logs/tiles_server.log'
+        # 输出格式
+        self.log_format = '%(levelname)s [%(asctime)s] %(message)s'
 
-        if response.status_code != 200:
-            raise Exception('can not get resource', response.status_code, response.content)
-        image_info = response.json()
-        tif_path = os.path.join(image_info['storage_path'], image_info['file_name']+image_info['suffix'])
-        tif_path_cache[image_info['id']] = tif_path
-        print(tif_path)
-    return tif_path
+        # logging配置
+        logging.basicConfig(
+            level=logging.WARNING,
+            format=self.log_format,
+            filename=self.log_name,
+        )
+
+
+def get_path(image_id, request):
+    try:
+        if image_id in tif_path_cache:
+            tif_path = tif_path_cache[image_id]
+        else:
+            tiff_url = 'http://%s/api/v1/images/%s/' % (QAS_HOST, image_id)
+            response = requests.get(tiff_url)
+
+            if response.status_code != 200:
+                raise Exception('can not get resource', response.status_code, response.content)
+            image_info = response.json()
+            tif_path = os.path.join(image_info['storage_path'], image_info['file_name']+image_info['suffix'])
+            tif_path_cache[image_info['id']] = tif_path
+
+        return tif_path
+    except Exception as e:
+        logging.error('获取图像路径失败：%s' % e)
 
 
 def get_slide(image_id, img_path):
@@ -46,13 +68,16 @@ def get_slide(image_id, img_path):
     img_name = os.path.basename(img_path)
     img = image_id + '_' + img_name
 
-    if img in slide_cache:
-        slide = slide_cache[img]
-    else:
-        slide = Aslide(img_path)
-        slide_cache[img] = slide
+    try:
+        if img in slide_cache:
+            slide = slide_cache[img]
+        else:
+            slide = Aslide(img_path)
+            slide_cache[img] = slide
 
-    return slide
+        return slide
+    except Exception as e:
+        logging.error('读取图像失败：%s' % e)
 
 
 @app.route('/tiles/<image_id>/')
@@ -176,7 +201,11 @@ async def cell_image_request(request, image_id, x, y, w, h, format):
 
 if __name__ == '__main__':
 
-    app.run(host='192.168.2.179', port=5010, debug=True)
+    # 开启日志
+    ConfigLog()
+
+    # access_log=False 不记录成功的日志, error_log=True, 记录失败的日志
+    app.run(host='192.168.2.179', port=5010, access_log=False, error_log=True)
     # port = sys.argv[1]
     # try:
     #     port = int(port)
