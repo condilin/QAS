@@ -20,7 +20,7 @@ class Case(models.Model):
     update_time = models.DateTimeField(verbose_name=u"处理时间", auto_now=True)
 
     def __str__(self):
-        return '该病例信息对应的大图id为: %s, 对应的病人为: %s' % (self.image.id, self.patient.id)
+        return '该病例信息对应的大图id为: %s, 对应的病人id为: %s' % (self.image.id, self.patient.id)
 
     class Meta:
         db_table = 'tb_case'  # 自定义数据库表的名称
