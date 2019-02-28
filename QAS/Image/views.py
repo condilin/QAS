@@ -1,11 +1,11 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, ListCreateAPIView
+from rest_framework.generics import ListAPIView
 
 import os
 import time
-import json
+import numpy as np
 from QAS.settings.dev import DATA_SAMBA_PREX
 
 from Image.models import Image
@@ -15,12 +15,84 @@ import logging
 logger = logging.getLogger('qas')
 
 
+class StatisticImageView(APIView):
+    """
+    大图中的标注报告
+    """
+
+    def get(self, request, pk):
+
+        # 根据id, 查询数据库
+        try:
+            image = Image.objects.get(id=pk, is_delete=False)
+        except Image.DoesNotExist as e:
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据不存在！'})
+
+        # 定义返回结果列表
+        result_dict = {}
+
+        # ---------- 统计该大图下参考对象的平均灰度值 ---------- #
+        # 定义列表存储所有参考对象的灰度值
+        gray_value_list = []
+        # 查询该大图所有的参考对象
+        all_reference = image.regions.filter(is_reference_obj=True)
+        # 判断该大图是否有参考对象
+        if all_reference:
+            # 循环所有参考对象, 将灰度值添加到列表
+            for obj in all_reference:
+                gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+            # 计算灰度值平均值
+            gray_avg = round(np.average(gray_value_list), 2)
+            # 添加到结果列表
+            result_dict['gray_avg'] = gray_avg
+        else:
+            result_dict['gray_avg'] = None
+
+        # ---------- 统计非参考对象的信息：标注区域id, 灰度值, 面积, di值, 细胞轮廓数量 ---------- #
+        # 定义列表存储所有非参考对象的信息
+        info_list = []
+        # 查询该大图所有的标注框
+        all_no_reference = image.regions.filter(is_reference_obj=False)
+        # # 判断该大图是否有标注对象
+        if all_no_reference:
+            # 循环所有标注对象
+            for obj in all_no_reference:
+                # 获取每个标注区域中所有轮廓的灰度值和面积字典
+                contour_info = obj.contours.values('id', 'cells_contours_gray', 'cells_contours_area')
+                # 标注区域中的细胞核数量
+                cells_count = contour_info.count()
+                # 如果有标注区域中有多个轮廓, 则计算该轮廓的平均灰度值和平均面积
+                if cells_count > 1:
+                    cells_contours_area = np.sum([i['cells_contours_area'] for i in contour_info]) / cells_count
+                    cells_contours_gray = np.sum([i['cells_contours_gray'] for i in contour_info]) / cells_count
+                else:
+                    cells_contours_area = contour_info[0]['cells_contours_area']
+                    cells_contours_gray = contour_info[0]['cells_contours_gray']
+                # 计算标注区域的di值
+                cell_region_di = round(cells_contours_gray / result_dict['gray_avg'], 2)
+                # 获取标注区域id
+                region_id = contour_info[0]['id']
+
+                info_list.append({
+                    'cells_contours_area': cells_contours_area,
+                    'cells_contours_gray': cells_contours_gray,
+                    'cell_region_di': cell_region_di,
+                    'cells_count': cells_count,
+                    'region_id': region_id
+                })
+
+        # 将标注区域信息添加到最后返回结果中
+        result_dict['info_list'] = info_list
+
+        return Response(status=status.HTTP_200_OK, data={'result_dict': result_dict})
+
+
 class SImageView(ListAPIView):
     """
     get: 查询大图列表
     """
 
-    # 指定查询集, 获取没有逻辑删除的数据, 返回最近打开的前6条记录
+    # 指定查询集, 获取没有逻辑删除的数据, 返回最近打开的前20条记录
     queryset = Image.objects.filter(is_delete=False).order_by('-last_open_time')[:20]
 
     # 指定序列化器
@@ -48,7 +120,7 @@ class CImageView(APIView):
 
         # 判断该文件是否已存在于数据库中, 不存在则新增一条记录
         image_select = Image.objects.filter(file_name=file_name, is_delete=False)
-        print(image_select)
+
         if image_select:
             # 返回该大图的id
             return Response(status=status.HTTP_201_CREATED, data={'result': {'id': image_select[0].id}})
