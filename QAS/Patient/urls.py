@@ -8,5 +8,6 @@ from django.conf.urls import url
 from . import views
 
 urlpatterns = [
-    url(r'^patients/(?P<pk>\d+)/$', views.SCUDPatientView.as_view()),  # 查询/新增/修改/删除一条记录
+    # url(r'^patients/(?P<pk>\d+)/$', views.SCUDPatientView.as_view()),  # 查询/新增/修改/删除一条记录
+    url(r'^patients/$', views.SCPatientView.as_view()),  # 查询/新增/修改/删除一条记录
 ]
