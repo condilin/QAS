@@ -74,7 +74,6 @@ def get_slide(image_id, img_path):
         else:
             slide = Aslide(img_path)
             slide_cache[img] = slide
-
         return slide
     except Exception as e:
         logging.error('读取图像失败：%s' % e)
@@ -96,6 +95,7 @@ async def tiles_dzi(request, image_id):
     # slide = get_slide(img_path)
 
     slide = get_slide(image_id, get_path(image_id, request))
+
     try:
         zoomer = ADeepZoomGenerator(slide).get_dzi('jpeg')
         return response.html(zoomer)
@@ -114,10 +114,9 @@ async def label_image(request, image_id, format):
     """
 
     slide = get_slide(image_id, get_path(image_id, request))
-    print('slide ==================', slide)
     bio = BytesIO()
     label_image = slide.label_image
-    # 如果标签存在则保存
+    # 如果标签存在则保存,否则返回一个空字节
     if label_image:
         label_image.save(bio, 'png')
         image_bytes = bio.getvalue()
