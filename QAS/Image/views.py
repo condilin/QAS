@@ -71,7 +71,7 @@ class StatisticImageView(APIView):
                 # 计算标注区域的di值
                 cell_region_di = round(cells_contours_gray / result_dict['gray_avg'], 2)
                 # 获取标注区域id
-                region_id = contour_info[0]['id']
+                region_id = obj.id
 
                 info_list.append({
                     'cells_contours_area': cells_contours_area,
