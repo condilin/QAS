@@ -47,6 +47,8 @@ class StatisticImageView(APIView):
             result_dict['gray_avg'] = gray_avg
         else:
             result_dict['gray_avg'] = None
+            # 没有参考对象的话, 不再进行后缀的计算, 直接返回
+            return Response(status=status.HTTP_200_OK, data={'result_dict': result_dict})
 
         # ---------- 统计非参考对象的信息：标注区域id, 灰度值, 面积, di值, 细胞轮廓数量 ---------- #
         # 定义列表存储所有非参考对象的信息
@@ -84,6 +86,7 @@ class StatisticImageView(APIView):
         # 将标注区域信息添加到最后返回结果中
         result_dict['info_list'] = info_list
 
+        print(result_dict)
         return Response(status=status.HTTP_200_OK, data={'result_dict': result_dict})
 
 
