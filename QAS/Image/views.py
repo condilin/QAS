@@ -86,7 +86,6 @@ class StatisticImageView(APIView):
         # 将标注区域信息添加到最后返回结果中
         result_dict['info_list'] = info_list
 
-        print(result_dict)
         return Response(status=status.HTTP_200_OK, data={'result_dict': result_dict})
 
 
@@ -198,9 +197,8 @@ class SUDImageView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
         try:
-            # 数据库中逻辑删除
-            image.is_delete = True
-            image.save()
+            # 数据库物理删除
+            image.delete()
         except Exception as e:
             logger.warning(e)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
