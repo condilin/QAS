@@ -38,9 +38,9 @@ class ContoursMark(models.Model):
         RegionCoord, on_delete=models.CASCADE, related_name='contours', verbose_name=u"关联用户框的区域表id"
     )
     cells_contours_coord = models.CharField(max_length=4000, verbose_name=u"细胞轮廓坐标")
-    cells_contours_area = models.IntegerField(verbose_name=u"细胞轮廓面积", null=True, blank=True)
-    cells_contours_perimeter = models.IntegerField(verbose_name=u"细胞轮廓周长", null=True, blank=True)
-    cells_contours_gray = models.IntegerField(verbose_name=u"细胞轮廓里的灰度值", null=True, blank=True)
+    cells_contours_area = models.IntegerField(verbose_name=u"细胞轮廓面积")
+    cells_contours_perimeter = models.IntegerField(verbose_name=u"细胞轮廓周长")
+    cells_contours_gray = models.IntegerField(verbose_name=u"细胞轮廓里的灰度值")
 
     is_delete = models.BooleanField(verbose_name=u'是否逻辑删除', default=False)
     create_time = models.DateTimeField(verbose_name=u'创建时间', auto_now_add=True)
