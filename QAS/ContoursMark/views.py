@@ -5,7 +5,6 @@ from rest_framework.generics import ListAPIView, ListCreateAPIView
 from django.forms.models import model_to_dict
 
 import numpy as np
-
 from ContoursMark.models import RegionCoord, ContoursMark
 from Image.models import Image
 
@@ -145,20 +144,61 @@ class SCUDMarkView(APIView):
 
     def patch(self, request, pk):
 
+        # 先判断flag修改的是框选区域还是轮廓
+        flag = request.data.get('flag')
+
         # 获取轮廓id,区域id以及是否做为参考对象
-        contours_id = request.data.get('contours_id', None)
-        region_id = request.data.get('region_id', None)
+        if flag == 'contours':
+            # ------------------------- 修改轮廓数据 ------------------------- #
+            # 只修改轮廓(只传contours_id)
+            # 将x-www-form-urlencoded类型并转换成dict类型
+            contours_id = request.data.dict().get('contours_id', None)
+            if not contours_id:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
-        if not contours_id and not region_id:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
+            # 根据轮廓id, 查询数据库对象
+            try:
+                contours = ContoursMark.objects.get(id=contours_id, is_delete=False)
+            except ContoursMark.DoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
-        if contours_id and region_id:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '确定修改的是contours还是region！'})
+            # 获取细胞核轮廓数据, 并将x-www-form-urlencoded类型并转换成dict类型
+            contours_info = request.data.dict()
+            # 获取细胞轮廓坐标
+            cells_contours_coord = eval(contours_info['cells_contours_coord'])
+            cells_contours_area = contours_info['cells_contours_area']
+            cells_contours_perimeter = contours_info['cells_contours_perimeter']
+            cells_contours_gray = contours_info['cells_contours_gray']
 
-        # ------------------------- 修改区域数据 ------------------------- #
-        # 修改区域(需要传区域id, 根据区域id查询出所有的轮廓id, 并删除这些轮廓, 因为修改了原区域之后, 新的区域
-        # 又会识别出不同的轮廓, 之前的轮廓已经没用了, 然后再新增新轮廓到数据库中)
-        if region_id:
+            # 修改并保存数据
+            contours.cells_contours_coord = cells_contours_coord
+            contours.cells_contours_area = cells_contours_area
+            contours.cells_contours_perimeter = cells_contours_perimeter
+            contours.cells_contours_gray = cells_contours_gray
+            contours.save()
+
+            # 返回修改后的数据
+            res_to_dict = model_to_dict(contours)
+            res = {
+                'contours_info': [{
+                    'cells_contours_coord': res_to_dict['cells_contours_coord'],
+                    'cells_contours_area': res_to_dict['cells_contours_area'],
+                    'cells_contours_perimeter': res_to_dict['cells_contours_perimeter'],
+                    'cells_contours_gray': res_to_dict['cells_contours_gray']
+                }],
+                'contours_id': res_to_dict['id']
+            }
+            return Response(status=status.HTTP_200_OK, data=res)
+
+        elif flag == 'region':
+            # ------------------------- 修改区域数据 ------------------------- #
+            # 修改区域(需要传区域id, 根据区域id查询出所有的轮廓id, 并删除这些轮廓, 因为修改了原区域之后, 新的区域
+            # 又会识别出不同的轮廓, 之前的轮廓已经没用了, 然后再新增新轮廓到数据库中)
+
+            region_id = request.data.get('region_id', None)
+            if not region_id:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
+
             # 根据区域id, 查询数据库对象
             try:
                 region = RegionCoord.objects.get(id=region_id, is_delete=False)
@@ -166,12 +206,14 @@ class SCUDMarkView(APIView):
                 return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
             # 获取用户所选区域数据
-            x, y, w, h = request.data['x'], request.data['y'], request.data['w'], request.data['h']
+            try:
+                x, y, w, h = request.data['x'], request.data['y'], request.data['w'], request.data['h']
+            except Exception as e:
+                return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '请输入正确的参数！'})
+
             # 不知为何使用request.data['is_reference_obj']获取到的数据是tuple类型:(0, ), 从而结果保存不到数据库
             # 而使用request.data.get('is_reference_obj', None), 则获取到的数据类型为int, 0
             is_reference_obj = request.data.get('is_reference_obj', None)
-            if not contours_id and not region_id:
-                return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
             # 修改并保存数据
             region.x = x
@@ -225,41 +267,8 @@ class SCUDMarkView(APIView):
             return Response(status=status.HTTP_200_OK,
                             data={'contours_info': contours_info, 'gray_avg': gray_avg})
 
-        # ------------------------- 修改轮廓数据 ------------------------- #
-        # 只修改轮廓(只传contours_id)
-        if contours_id:
-            # 根据轮廓id, 查询数据库对象
-            try:
-                contours = ContoursMark.objects.get(id=contours_id, is_delete=False)
-            except ContoursMark.DoesNotExist:
-                return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
-
-            # 获取细胞核轮廓数据
-            contours_info = request.data['contours_info'][0]
-            cells_contours_coord = contours_info['cells_contours_coord']
-            cells_contours_area = contours_info['cells_contours_area']
-            cells_contours_perimeter = contours_info['cells_contours_perimeter']
-            cells_contours_gray = contours_info['cells_contours_gray']
-
-            # 修改并保存数据
-            contours.cells_contours_coord = cells_contours_coord
-            contours.cells_contours_area = cells_contours_area
-            contours.cells_contours_perimeter = cells_contours_perimeter
-            contours.cells_contours_gray = cells_contours_gray
-            contours.save()
-
-            # 返回修改后的数据
-            res_to_dict = model_to_dict(contours)
-            res = {
-                'contours_info': [{
-                    'cells_contours_coord': res_to_dict['cells_contours_coord'],
-                    'cells_contours_area': res_to_dict['cells_contours_area'],
-                    'cells_contours_perimeter': res_to_dict['cells_contours_perimeter'],
-                    'cells_contours_gray': res_to_dict['cells_contours_gray']
-                }],
-                'contours_id': res_to_dict['id']
-            }
-            return Response(status=status.HTTP_200_OK, data=res)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
     def delete(self, request, pk):
 
