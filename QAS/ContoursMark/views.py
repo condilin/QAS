@@ -150,10 +150,11 @@ class SCUDMarkView(APIView):
         # 获取轮廓id,区域id以及是否做为参考对象
         if flag == 'contours':
             # ------------------------- 修改轮廓数据 ------------------------- #
-            # 只修改轮廓(只传contours_id)
+            # 只修改轮廓(只传contours_id,同时判断是否为参考对象,是则更新平均灰度值)
             # 将x-www-form-urlencoded类型并转换成dict类型
             contours_id = request.data.dict().get('contours_id', None)
-            if not contours_id:
+            is_reference_obj = request.data.dict().get('is_reference_obj', None)
+            if not contours_id or not is_reference_obj:
                 return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
             # 根据轮廓id, 查询数据库对象
@@ -177,6 +178,25 @@ class SCUDMarkView(APIView):
             contours.cells_contours_gray = cells_contours_gray
             contours.save()
 
+            # ----- 返回参考对象最新的灰度平均值 ------ #
+            # 因为此接口使用了x-www-form的数据类型, 因此获取的参数全部会变成字符串
+            if is_reference_obj == 'true' or is_reference_obj == '1' or is_reference_obj == 1:
+                # 定义列表存储所有参考对象的灰度值
+                gray_value_list = []
+                # 直接查询该大图所有的参考对象
+                all_reference = Image.objects.get(id=pk).regions.filter(is_reference_obj=True)
+                # 判断该大图是否有参考对象
+                if all_reference:
+                    # 循环所有参考对象, 将灰度值添加到列表
+                    for obj in all_reference:
+                        gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+                    # 计算灰度值平均值
+                    gray_avg = round(np.average(gray_value_list), 2)
+                else:
+                    gray_avg = None
+            else:
+                gray_avg = None
+
             # 返回修改后的数据
             res_to_dict = model_to_dict(contours)
             res = {
@@ -186,7 +206,8 @@ class SCUDMarkView(APIView):
                     'cells_contours_perimeter': res_to_dict['cells_contours_perimeter'],
                     'cells_contours_gray': res_to_dict['cells_contours_gray']
                 }],
-                'contours_id': res_to_dict['id']
+                'contours_id': res_to_dict['id'],
+                'gray_avg': gray_avg
             }
             return Response(status=status.HTTP_200_OK, data=res)
 
