@@ -3,29 +3,36 @@
 from PIL import Image
 import os
 import sys
-
-
-# gpu num
-# GPU_NUM = len(os.popen("lspci|grep VGA|grep NVIDIA").read().split('\n')) - 1
-# GPU_INDEX = tuple(i for i in range(GPU_NUM))
-yolo_path = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(yolo_path)
-
-from darknet.darknet import *
+from Services.Yolo.darknet.darknet import *
 
 
 class YoloInterface(object):
     # __instance = None
     #
     # def __new__(cls, *args, **kwargs):
-    #     if not cls.__instance:
-    #         cls.__instance = super().__new__(cls, *args, **kwargs)
+    #     if cls.__instance == None:
+    #         cls.__instance = object.__new__(cls, *args, **kwargs)
     #     return cls.__instance
 
     def __init__(self):
-        self.net = load_net("{}/config/my_yolo.cfg".format(yolo_path).encode(),
-                            "{}/config/my_yolo.backup".format(yolo_path).encode(), 0)
-        self.meta = load_meta("{}/config/my_yolo.data".format(yolo_path).encode())
+        path_dict = self.__gen_cfg_path(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cfg')
+        )
+        self.net = load_net(path_dict['cfg'].encode(),
+                            path_dict['backup'].encode(), 0)
+        self.meta = load_meta(path_dict['data'].encode())
+
+    def __gen_cfg_path(self, path):
+        path_dict = {}
+        file_list = os.listdir(path)
+        for file in file_list:
+            if file.split('.')[-1] == 'cfg':
+                path_dict['cfg'] = os.path.abspath(os.path.join(path, file))
+            elif file.split('.')[-1] == 'data':
+                path_dict['data'] = os.path.abspath(os.path.join(path, file))
+            elif file.split('.')[-1] == 'backup':
+                path_dict['backup'] = os.path.abspath(os.path.join(path, file))
+        return path_dict
 
     def _get_yolo_detection_location(self, image_path, thresh):
         '''
@@ -34,7 +41,6 @@ class YoloInterface(object):
         :param thresh: 设置阈值,获得置信度在阈值之上的结果
         :return: 置信度,以及x,y,w,h的列表
         '''
-
         rets = detect(self.net, self.meta, image_path.encode(), thresh)
         ret_list = []
         for ret in rets:
@@ -72,7 +78,5 @@ class YoloInterface(object):
 
 
 if __name__ == '__main__':
-
     yolo = YoloInterface()
-    while 1:
-        yolo.get_detect_img('/home/wqf/桌面/screenshot_1551796474452.png', '/home/wqf/桌面/temp_img')
+    yolo.get_detect_img('/home/wqf/PycharmProjects/yolo/data/aaa.png', '/home/wqf/桌面/temp_img')
