@@ -65,6 +65,11 @@ class ConfigLog(object):
         handler.setFormatter(self.log_format)
         app.logger.addHandler(handler)
 
+        # yolo/unet模型中要创建保存和检测的图像的路径
+        os.makedirs(yolo_wait_detect_dir_path, exist_ok=True)
+        os.makedirs(save_yolo_detect, exist_ok=True)
+        os.makedirs(save_unet_segment, exist_ok=True)
+
 
 def get_path(image_id):
     try:
@@ -118,7 +123,7 @@ def cell_image_request(image_id, x, y, w, h):
     :return:
     """
 
-    print('in ==================> ')
+    # print('in ==================> ')
     start_time = time.time()
 
     # 根据id, 读取图像
