@@ -24,7 +24,7 @@ from Services.Unet.segment_result import UnetInterface
 app = Flask(__name__)
 # 跨域支持
 CORS(app)
-app.secret_key = 'xfsdfqw'
+app.secret_key = 'xfsdfsEESdf3#$#423df$%#324qwGR'
 
 tif_path_cache = {}
 slide_cache = {}
