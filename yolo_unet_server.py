@@ -260,5 +260,5 @@ if __name__ == '__main__':
 
     # 开启日志
     ConfigLog()
-
+    # use_reloader不启动自动更新
     app.run(debug=True, host='192.168.2.179', port=5011, use_reloader=False)
