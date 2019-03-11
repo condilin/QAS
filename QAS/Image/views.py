@@ -55,33 +55,38 @@ class StatisticImageView(APIView):
         info_list = []
         # 查询该大图所有的标注框
         all_no_reference = image.regions.filter(is_reference_obj=False)
-        # # 判断该大图是否有标注对象
+        # 判断该大图是否有标注对象
         if all_no_reference:
             # 循环所有标注对象
             for obj in all_no_reference:
                 # 获取每个标注区域中所有轮廓的灰度值和面积字典
                 contour_info = obj.contours.values('id', 'cells_contours_gray', 'cells_contours_area')
-                # 标注区域中的细胞核数量
-                cells_count = contour_info.count()
-                # 如果有标注区域中有多个轮廓, 则计算该轮廓的平均灰度值和平均面积
-                if cells_count > 1:
-                    cells_contours_area = np.sum([i['cells_contours_area'] for i in contour_info]) / cells_count
-                    cells_contours_gray = np.sum([i['cells_contours_gray'] for i in contour_info]) / cells_count
-                else:
-                    cells_contours_area = contour_info[0]['cells_contours_area']
-                    cells_contours_gray = contour_info[0]['cells_contours_gray']
-                # 计算标注区域的di值
-                cell_region_di = round(cells_contours_gray / result_dict['gray_avg'], 2)
-                # 获取标注区域id
-                region_id = obj.id
+                # 如果只有框选区域, 没有细胞核的话, 该区域会被跳过
+                if contour_info:
+                    # 标注区域中的细胞核数量
+                    cells_count = contour_info.count()
+                    # 如果有标注区域中有多个轮廓, 则计算该轮廓的平均灰度值和平均面积
+                    if cells_count > 1:
+                        cells_contours_area = np.sum([i['cells_contours_area'] for i in contour_info]) / cells_count
+                        cells_contours_gray = np.sum([i['cells_contours_gray'] for i in contour_info]) / cells_count
+                    else:
+                        cells_contours_area = contour_info[0]['cells_contours_area']
+                        cells_contours_gray = contour_info[0]['cells_contours_gray']
+                    # 计算标注区域的di值
+                    cell_region_di = round(cells_contours_gray / result_dict['gray_avg'], 2)
+                    # 获取标注区域id
+                    region_id = obj.id
 
-                info_list.append({
-                    'cells_contours_area': cells_contours_area,
-                    'cells_contours_gray': cells_contours_gray,
-                    'cell_region_di': cell_region_di,
-                    'cells_count': cells_count,
-                    'region_id': region_id
-                })
+                    info_list.append({
+                        'cells_contours_area': cells_contours_area,
+                        'cells_contours_gray': cells_contours_gray,
+                        'cell_region_di': cell_region_di,
+                        'cells_count': cells_count,
+                        'region_id': region_id
+                    })
+                else:
+                    # 没有细胞核的区域会被跳过
+                    continue
 
         # 将标注区域信息添加到最后返回结果中
         result_dict['info_list'] = info_list
