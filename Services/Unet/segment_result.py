@@ -12,6 +12,8 @@ import mxnet as mx
 from collections import namedtuple
 from Services.utils import get_coord
 
+os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
+
 
 class UnetInterface(object):
 
