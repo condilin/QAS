@@ -88,13 +88,13 @@ def find_max_contour(pred):
         return pred, contours, max_area, max_perimeter
 
 
-def segment(detect_dir, save_dir, flag='unet'):
+def segment(detect_dir, save_dir, model_weight, flag='unet'):
 
     os.makedirs(save_dir, exist_ok=True)
 
     contours_info = []
     yolo_detect_cells_list = os.listdir(detect_dir)
-    seg_mod = get_segmentation_mod()
+
     for file_name in yolo_detect_cells_list:
         # 读取图片
         fn_path = os.path.join(detect_dir, file_name)
@@ -104,7 +104,7 @@ def segment(detect_dir, save_dir, flag='unet'):
         raw_img_light = contrast_brightness_image(raw_img)
 
         # 分割
-        pred = seg_img(raw_img_light, seg_mod).astype(np.uint8)
+        pred = seg_img(raw_img_light, model_weight).astype(np.uint8)
 
         # 找最大连同区域
         pred, contours, max_area, max_perimeter = find_max_contour(pred)
