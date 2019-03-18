@@ -10,15 +10,13 @@ import os, time
 import numpy as np
 import requests
 import logging
-from multiprocessing import Process
 
 from flask import Flask, make_response, jsonify, request
 from flask_cors import CORS
 
 from Services.Aslide.aslide import Aslide
 from Services.Yolo.detect_result import YoloInterface
-# from Services.Unet.unetImp_comment import segment
-from Services.Unet.segment_result import UnetInterface
+from Services.Unet.segment_result import segment
 
 
 app = Flask(__name__)
@@ -45,9 +43,6 @@ save_unet_segment = './Services/Unet/segmented_img'
 # 实例化yolo检测对象, 加载yolo权重
 yolo_instance = YoloInterface()
 
-# 加载unet模型权重
-unet_instance = UnetInterface()
-
 
 # 配置日志/初始化变量
 class ConfigLog(object):
@@ -66,9 +61,15 @@ class ConfigLog(object):
         app.logger.addHandler(handler)
 
         # yolo/unet模型中要创建保存和检测的图像的路径
-        os.makedirs(yolo_wait_detect_dir_path, exist_ok=True)
-        os.makedirs(save_yolo_detect, exist_ok=True)
-        os.makedirs(save_unet_segment, exist_ok=True)
+        if os.path.exists(yolo_wait_detect_dir_path):
+            shutil.rmtree(yolo_wait_detect_dir_path)
+            os.makedirs(yolo_wait_detect_dir_path, exist_ok=True)
+        if os.path.exists(save_yolo_detect):
+            shutil.rmtree(save_yolo_detect)
+            os.makedirs(save_yolo_detect, exist_ok=True)
+        if os.path.exists(save_unet_segment):
+            shutil.rmtree(save_unet_segment)
+            os.makedirs(save_unet_segment, exist_ok=True)
 
 
 def get_path(image_id):
@@ -141,9 +142,9 @@ def cell_image_request(image_id, x, y, w, h):
     detected_img_count = os.listdir(save_yolo_detect)
     # 加载unet模型, 获取分割后细胞核信息
     if not detected_img_count:
-        contours_info = unet_instance.segment(yolo_wait_detect_dir_path, save_unet_segment, flag='unet')
+        contours_info = segment(yolo_wait_detect_dir_path, save_unet_segment, flag='unet')
     else:
-        contours_info = unet_instance.segment(save_yolo_detect, save_unet_segment, flag='yolo')
+        contours_info = segment(save_yolo_detect, save_unet_segment, flag='yolo')
         # 检测完之后删除待检测的图像
         os.remove(yolo_wait_detect_img_path)
 
@@ -183,7 +184,7 @@ def cell_image_request(image_id, x, y, w, h):
 @app.route("/contours/<int:image_id>", methods=["POST"])
 def contours_compute(image_id):
     """
-    获取调整好的轮廓坐标, 重新计算面积和灰度值
+    修改细胞核轮廓坐标, 重新计算面积和灰度值
     :param image_id:
     :return:
     """
