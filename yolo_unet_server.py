@@ -16,7 +16,12 @@ from flask_cors import CORS
 
 from Services.Aslide.aslide import Aslide
 from Services.Yolo.detect_result import YoloInterface
-from Services.Unet.segment_result import segment
+from Services.Unet.segment_result import segment, get_segmentation_mod
+
+# 实例化yolo检测对象, 加载yolo权重
+yolo_instance = YoloInterface()
+# 加载unet权重
+unet_model_weight = get_segmentation_mod()
 
 
 app = Flask(__name__)
@@ -38,10 +43,6 @@ yolo_wait_detect_dir_path = './Services/Yolo/wait_detect_img'
 save_yolo_detect = './Services/Yolo/detected_img'
 # 保存unet分割后的图像路径
 save_unet_segment = './Services/Unet/segmented_img'
-
-
-# 实例化yolo检测对象, 加载yolo权重
-yolo_instance = YoloInterface()
 
 
 # 配置日志/初始化变量
@@ -142,9 +143,9 @@ def cell_image_request(image_id, x, y, w, h):
     detected_img_count = os.listdir(save_yolo_detect)
     # 加载unet模型, 获取分割后细胞核信息
     if not detected_img_count:
-        contours_info = segment(yolo_wait_detect_dir_path, save_unet_segment, flag='unet')
+        contours_info = segment(yolo_wait_detect_dir_path, save_unet_segment, unet_model_weight, flag='unet')
     else:
-        contours_info = segment(save_yolo_detect, save_unet_segment, flag='yolo')
+        contours_info = segment(save_yolo_detect, save_unet_segment, unet_model_weight, flag='yolo')
         # 检测完之后删除待检测的图像
         os.remove(yolo_wait_detect_img_path)
 
@@ -184,7 +185,7 @@ def cell_image_request(image_id, x, y, w, h):
 @app.route("/contours/<int:image_id>", methods=["POST"])
 def contours_compute(image_id):
     """
-    修改细胞核轮廓坐标, 重新计算面积和灰度值
+    修改/添加细胞核轮廓坐标, 重新计算面积和灰度值
     :param image_id:
     :return:
     """
