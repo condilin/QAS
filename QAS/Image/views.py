@@ -99,8 +99,8 @@ class SImageView(ListAPIView):
     get: 查询大图列表
     """
 
-    # 指定查询集, 获取没有逻辑删除的数据, 返回最近打开的前20条记录
-    queryset = Image.objects.filter(is_delete=False).order_by('-last_open_time')[:20]
+    # 指定查询集, 获取没有逻辑删除的数据
+    queryset = Image.objects.filter(is_delete=False).order_by('-last_open_time')
 
     # 指定序列化器
     serializer_class = SCUImageSerializer
