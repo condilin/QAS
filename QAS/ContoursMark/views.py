@@ -94,53 +94,122 @@ class SCUDMarkView(APIView):
 
     def post(self, request, pk):
 
-        # 获取请求体中的表单数据并在RegionCoord表创建记录
-        region_obj = RegionCoord.objects.create(
-            image=Image.objects.get(id=pk),
-            is_reference_obj=request.data['is_reference_obj'],
-            x=request.data['x'], y=request.data['y'], w=request.data['w'], h=request.data['h']
-        )
+        # 先判断flag修改的是框选区域还是轮廓
+        flag = request.data.get('flag')
 
-        # ContoursMark表创建记录
-        # 可能有有多个标记轮廓, 需要循环创建记录
-        contours_info = request.data['contours_info']
-        for contour in contours_info:
-            contour_obj = ContoursMark.objects.create(
-                # 获取RegionCoord表创建的记录
-                region=region_obj,
-                cells_contours_coord=contour['cells_contours_coord'],
-                cells_contours_area=contour['cells_contours_area'],
-                cells_contours_perimeter=contour['cells_contours_perimeter'],
-                cells_contours_gray=contour['cells_contours_gray'],
+        # 获取轮廓id,区域id以及是否做为参考对象
+        if flag == 'region':
+            # ------------------------- 新增区域数据 ------------------------- #
+            # 获取请求体中的表单数据并在RegionCoord表创建记录
+            region_obj = RegionCoord.objects.create(
+                image=Image.objects.get(id=pk),
+                is_reference_obj=request.data['is_reference_obj'],
+                x=request.data['x'], y=request.data['y'], w=request.data['w'], h=request.data['h']
             )
 
-            # 将大图id, 区域坐标id, 轮廓id(自身的id), 是否为参考对象一起返回
-            contour['img_id'] = pk
-            contour['region_id'] = region_obj.id
-            contour['contours_id'] = contour_obj.id
-            contour['is_reference_obj'] = request.data['is_reference_obj']
+            # ContoursMark表创建记录
+            # 可能有有多个标记轮廓, 需要循环创建记录
+            contours_info = request.data['contours_info']
+            for contour in contours_info:
+                contour_obj = ContoursMark.objects.create(
+                    # 获取RegionCoord表创建的记录
+                    region=region_obj,
+                    cells_contours_coord=contour['cells_contours_coord'],
+                    cells_contours_area=contour['cells_contours_area'],
+                    cells_contours_perimeter=contour['cells_contours_perimeter'],
+                    cells_contours_gray=contour['cells_contours_gray'],
+                )
 
-        # ----- 返回参考对象最新的灰度平均值 ------ #
-        if request.data['is_reference_obj'] == 1:
-            # 定义列表存储所有参考对象的灰度值
-            gray_value_list = []
-            # 直接查询该大图所有的参考对象
-            all_reference = Image.objects.get(id=pk).regions.filter(is_reference_obj=True)
-            # 判断该大图是否有参考对象
-            if all_reference:
-                # 循环所有参考对象, 将灰度值添加到列表
-                for obj in all_reference:
-                    gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
-                # 计算灰度值平均值
-                gray_avg = round(np.average(gray_value_list), 2)
+                # 将大图id, 区域坐标id, 轮廓id(自身的id), 是否为参考对象一起返回
+                contour['img_id'] = pk
+                contour['region_id'] = region_obj.id
+                contour['contours_id'] = contour_obj.id
+                contour['is_reference_obj'] = request.data['is_reference_obj']
+
+            # ----- 返回参考对象最新的灰度平均值 ------ #
+            if request.data['is_reference_obj'] == 1:
+                # 定义列表存储所有参考对象的灰度值
+                gray_value_list = []
+                # 直接查询该大图所有的参考对象
+                all_reference = Image.objects.get(id=pk).regions.filter(is_reference_obj=True)
+                # 判断该大图是否有参考对象
+                if all_reference:
+                    # 循环所有参考对象, 将灰度值添加到列表
+                    for obj in all_reference:
+                        gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+                    # 计算灰度值平均值
+                    gray_avg = round(np.average(gray_value_list), 2)
+                else:
+                    gray_avg = None
             else:
                 gray_avg = None
-        else:
-            gray_avg = None
 
-        # 最终返回结果
-        return Response(status=status.HTTP_201_CREATED,
-                        data={'contours_info': contours_info, 'gray_avg': gray_avg})
+            # 最终返回结果
+            return Response(status=status.HTTP_201_CREATED,
+                            data={'contours_info': contours_info, 'gray_avg': gray_avg})
+
+        elif flag == 'contours':
+            # ------------------------- 新增轮廓数据 ------------------------- #
+            # 新增轮廓(传contours_id以及在哪个region中添加, 同时判断是否为参考对象,是则更新平均灰度值)
+            # 将x-www-form-urlencoded类型并转换成dict类型
+            region_id = request.data.dict().get('region_id', None)
+            is_reference_obj = request.data.dict().get('is_reference_obj', None)
+            if not region_id or not is_reference_obj:
+                return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
+
+            # 查询出要添加轮廓的区域
+            try:
+                region = RegionCoord.objects.get(id=region_id, is_delete=False)
+            except RegionCoord.DoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
+
+            # 获取细胞核轮廓数据, 并将x-www-form-urlencoded类型并转换成dict类型
+            contours_info = request.data.dict()
+            contour_obj = ContoursMark.objects.create(
+                # 获取RegionCoord表创建的记录
+                region=region,
+                cells_contours_coord=eval(contours_info['cells_contours_coord']),
+                cells_contours_area=contours_info['cells_contours_area'],
+                cells_contours_perimeter=contours_info['cells_contours_perimeter'],
+                cells_contours_gray=contours_info['cells_contours_gray'],
+            )
+
+            # ----- 返回参考对象最新的灰度平均值 ------ #
+            # 因为此接口使用了x-www-form的数据类型, 因此获取的参数全部会变成字符串
+            if is_reference_obj == 'true' or is_reference_obj == '1' or is_reference_obj == 1:
+                # 定义列表存储所有参考对象的灰度值
+                gray_value_list = []
+                # 直接查询该大图所有的参考对象
+                all_reference = Image.objects.get(id=pk).regions.filter(is_reference_obj=True)
+                # 判断该大图是否有参考对象
+                if all_reference:
+                    # 循环所有参考对象, 将灰度值添加到列表
+                    for obj in all_reference:
+                        gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+                    # 计算灰度值平均值
+                    gray_avg = round(np.average(gray_value_list), 2)
+                else:
+                    gray_avg = None
+            else:
+                gray_avg = None
+
+            # 返回新增后的数据
+            res_to_dict = model_to_dict(contour_obj)
+            res = {
+                'contours_info': [{
+                    'cells_contours_coord': res_to_dict['cells_contours_coord'],
+                    'cells_contours_area': res_to_dict['cells_contours_area'],
+                    'cells_contours_perimeter': res_to_dict['cells_contours_perimeter'],
+                    'cells_contours_gray': res_to_dict['cells_contours_gray']
+                }],
+                'contours_id': res_to_dict['id'],
+                'region_id': contour_obj.region.id,
+                'gray_avg': gray_avg
+            }
+            return Response(status=status.HTTP_200_OK, data=res)
+
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
     def patch(self, request, pk):
 
