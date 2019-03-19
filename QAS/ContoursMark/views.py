@@ -100,12 +100,20 @@ class SCUDMarkView(APIView):
         # 获取轮廓id,区域id以及是否做为参考对象
         if flag == 'region':
             # ------------------------- 新增区域数据 ------------------------- #
-            # 获取请求体中的表单数据并在RegionCoord表创建记录
-            region_obj = RegionCoord.objects.create(
-                image=Image.objects.get(id=pk),
-                is_reference_obj=request.data['is_reference_obj'],
-                x=request.data['x'], y=request.data['y'], w=request.data['w'], h=request.data['h']
-            )
+            # 如何有获取到传来的region_id, 说明是在区域里面添加细胞核, 否则是在区域外面添加
+            new_region_id = request.data.get('region_id', None)
+            if new_region_id:
+                try:
+                    region_obj = RegionCoord.objects.get(id=new_region_id)
+                except RegionCoord.DoesNotExist:
+                    return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
+            else:
+                # 获取请求体中的表单数据并在RegionCoord表创建记录
+                region_obj = RegionCoord.objects.create(
+                    image=Image.objects.get(id=pk),
+                    is_reference_obj=request.data['is_reference_obj'],
+                    x=request.data['x'], y=request.data['y'], w=request.data['w'], h=request.data['h']
+                )
 
             # ContoursMark表创建记录
             # 可能有有多个标记轮廓, 需要循环创建记录
