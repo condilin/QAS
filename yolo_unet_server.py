@@ -36,7 +36,7 @@ QAS_HOST = '192.168.2.179:8010'
 TIF_PATH_PREX = '/run/user/1000/gvfs/smb-share:server=192.168.2.221,share='
 
 # yolo待检测的图像
-yolo_wait_detect_img_path = './Services/Yolo/wait_detect_img/screenshot_1.png'
+yolo_wait_detect_img_path = './Services/Yolo/wait_detect_img/screenshot_{}.png'
 # yolo待检测的图像的目录
 yolo_wait_detect_dir_path = './Services/Yolo/wait_detect_img'
 # yolo已检测的图像路径
@@ -134,10 +134,11 @@ def cell_image_request(image_id, x, y, w, h):
     tile_image = slide.read_region((x, y), 0, (w, h))
 
     # 保存需要待检测的图像
-    tile_image.save(yolo_wait_detect_img_path)
+    yolo_wait_detect_img_path_ts = yolo_wait_detect_img_path.format(int(time.time()*1000))
+    tile_image.save(yolo_wait_detect_img_path_ts)
 
     # 加载yolo模型对图像进行细胞检测(params1: input_img_path, params2: output_dir_path)
-    yolo_instance.get_detect_img(yolo_wait_detect_img_path, save_yolo_detect)
+    yolo_instance.get_detect_img(yolo_wait_detect_img_path_ts, save_yolo_detect)
 
     # yolo可能对单个细胞检测不到或置信度很低, 此时直接使用unet进行预测, 可能效果会好点
     detected_img_count = os.listdir(save_yolo_detect)
@@ -147,7 +148,7 @@ def cell_image_request(image_id, x, y, w, h):
     else:
         contours_info = segment(save_yolo_detect, save_unet_segment, unet_model_weight, flag='yolo')
         # 检测完之后删除待检测的图像
-        os.remove(yolo_wait_detect_img_path)
+        os.remove(yolo_wait_detect_img_path_ts)
 
     # 获取原图的坐标
     raw_img_cord = np.array([x, y])
@@ -203,6 +204,8 @@ def contours_compute(image_id):
 
     # 检验参数
     if not image_id or not x or not y or not w or not h or not cells_contours_coord:
+        return make_response(jsonify({'msg': '参数错误！'}))
+    if not eval(cells_contours_coord):
         return make_response(jsonify({'msg': '参数错误！'}))
 
     # 将数据转成整数
@@ -263,4 +266,5 @@ if __name__ == '__main__':
     # 开启日志
     ConfigLog()
     # use_reloader不启动自动更新
-    app.run(debug=True, host='192.168.2.179', port=5011, use_reloader=False)
+    # threaded=False:不启动多线程, 因为使用默认的启动多线程会和mxnet框架有冲突,会报错
+    app.run(debug=True, host='192.168.2.179', port=5011, use_reloader=False, threaded=False)
