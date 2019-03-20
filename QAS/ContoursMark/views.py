@@ -372,13 +372,18 @@ class SCUDMarkView(APIView):
 
         # 根据轮廓id, 查询数据库对象
         try:
-            contours = ContoursMark.objects.get(id=pk, is_delete=False)
+            contour_obj = ContoursMark.objects.get(id=pk, is_delete=False)
         except ContoursMark.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
         try:
-            # 数据库中物理删除
-            contours.delete()
+            # 判断是否该细胞核轮廓所在的区域是否只剩下最后一个, 如果是最后一个, 则连该区域也删除
+            last_count = contour_obj.region.contours.count()
+            if last_count == 1:
+                # 删除区域, 也会将轮廓一起删除
+                RegionCoord.objects.get(id=contour_obj.region.id).delete()
+            else:
+                contour_obj.delete()
         except Exception as e:
             logger.warning(e)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
