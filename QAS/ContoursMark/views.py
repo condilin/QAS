@@ -12,12 +12,11 @@ import logging
 logger = logging.getLogger('qas')
 
 
-class SCUDMarkView(APIView):
+class SCUMarkView(APIView):
     """
     get: 查询一张大图中所有的细胞轮廓坐标列表
     post: 新增一条细胞轮廓坐标记录
     patch: 修改一条细胞轮廓坐标记录
-    delete: 删除一条细胞轮廓坐标记录
     """
 
     def get(self, request, pk):
@@ -368,7 +367,18 @@ class SCUDMarkView(APIView):
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
-    def delete(self, request, pk):
+
+class DMarkView(APIView):
+    """
+    post: 删除一条细胞轮廓坐标记录
+    """
+
+    def post(self, request, pk):
+
+        # 获取参考对象设置值
+        is_reference_obj = request.data.get('is_reference_obj', None)
+        if is_reference_obj is None:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '请输入正确的参数！'})
 
         # 根据轮廓id, 查询数据库对象
         try:
@@ -388,7 +398,30 @@ class SCUDMarkView(APIView):
             logger.warning(e)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
 
-        return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '删除细胞核轮廓成功！'})
+        # ----- 返回参考对象最新的灰度平均值 ------ #
+        if is_reference_obj == 1:
+            # 定义列表存储所有参考对象的灰度值
+            gray_value_list = []
+            # 通过contour_obj反向查询大图id
+            image_id = contour_obj.region.image.id
+            # 查询该大图所有的参考对象
+            all_reference = Image.objects.get(id=image_id).regions.filter(is_reference_obj=True)
+            # 判断该大图是否有参考对象
+            if all_reference:
+                # 循环所有参考对象, 将灰度值添加到列表
+                for obj in all_reference:
+                    gray_value_list.extend(obj.contours.values_list('cells_contours_gray', flat=True))
+                # 计算灰度值平均值
+                gray_avg = round(np.average(gray_value_list), 2)
+            else:
+                gray_avg = None
+        else:
+            gray_avg = None
+
+        return Response(
+            status=status.HTTP_200_OK,
+            data={'msg': '删除细胞核轮廓成功！', 'gray_avg': gray_avg}
+        )
 
 
 class CUReferenceView(APIView):
