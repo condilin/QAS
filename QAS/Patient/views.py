@@ -61,8 +61,11 @@ class SCPatientView(APIView):
 
         # 获取参数, 校验参数
         ser = SCPatientSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        ser.save()
+        # 验证通过则保存, 否则返回错误
+        if ser.is_valid():
+            ser.save()
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data='参数错误！')
 
         # 同时将新建的病人信息id, 大图id保存到病例信息表
         try:
@@ -98,8 +101,11 @@ class SCPatientView(APIView):
 
         # 获取参数, 校验参数, 保存结果
         ser = UPatientSerializer(patient, data=request.data)
-        ser.is_valid(raise_exception=True)
-        ser.save()
+        # 验证通过则保存, 否则返回错误
+        if ser.is_valid():
+            ser.save()
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data='参数错误！')
 
         # 通过病人反向查询其病例信息
         case_id = patient.pcase.id
