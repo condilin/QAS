@@ -4,8 +4,6 @@
 # @file: serializers.py
 # @time: 19-2-20 下午4:32
 
-from rest_framework import status
-from rest_framework.response import Response
 from rest_framework import serializers
 from .models import Patient
 
