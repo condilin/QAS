@@ -92,10 +92,21 @@ def segment(detect_dir, save_dir, model_weight, flag='unet'):
 
     os.makedirs(save_dir, exist_ok=True)
 
+    # 保存contours_info信息
     contours_info = []
     yolo_detect_cells_list = os.listdir(detect_dir)
 
     for file_name in yolo_detect_cells_list:
+        # 获取框选区域坐标
+        if flag == 'yolo':
+            region_x, region_y, region_w, region_h = get_coord(file_name)
+            # 判断yolo检测出来的细胞也会出现低像素的情况, 检测到的细胞核图像的宽和高都很小,
+            # 如果图像的宽高的面积太小, 面积小于100, 则不跑图像分割的代码
+            if region_w * region_h < 100:
+                continue
+        else:
+            region_x, region_y, region_w, region_h = (None, None, None, None)
+
         # 读取图片
         fn_path = os.path.join(detect_dir, file_name)
         raw_img = cv2.imread(fn_path)
@@ -114,12 +125,6 @@ def segment(detect_dir, save_dir, model_weight, flag='unet'):
         gray_img = cv2.cvtColor(raw_img, cv2.COLOR_RGB2GRAY)
         gray_img_resort = 255 - gray_img
         cells_contours_gray = np.sum(zero_one_matrix * gray_img_resort)
-
-        # 获取框选区域坐标
-        if flag == 'yolo':
-            region_x, region_y, region_w, region_h = get_coord(file_name)
-        else:
-            region_x, region_y, region_w, region_h = (None, None, None, None)
 
         contours_info.append(
             {
