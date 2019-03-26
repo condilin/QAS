@@ -117,6 +117,9 @@ class CImageView(APIView):
         full_path = request.data.get('full_storage_path', None)
         if not full_path:
             return Response(status=status.HTTP_400_BAD_REQUEST, data="请输入要打开的路径！")
+
+        # 对图像路径进行处理
+        full_path = full_path.replace('\\', '/').replace('//192.168.2.221/', '')
         full_path = DATA_SAMBA_PREX + full_path
 
         # 获取存储路径, 文件名, 后缀
