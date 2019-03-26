@@ -49,7 +49,7 @@ class YoloInterface(object):
             ret_list.append((det, loc_info))
         return ret_list
 
-    def get_detect_img(self, in_path, out_path, thresh=0.5):
+    def get_detect_img(self, in_path, out_path, thresh=0.1):
         '''
         获取检测图片
         :param in_path: 待检测的图片路径
