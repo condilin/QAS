@@ -125,8 +125,15 @@ def cell_image_request(image_id, x, y, w, h):
     :return:
     """
 
-    # print('in ==================> ')
     start_time = time.time()
+
+    # 判断框选区域的图像的是否太小
+    if int(w) < 10 or int(h) < 10:
+        end_time = time.time()
+        # 直接返回空信息
+        return make_response(jsonify({
+            'contours_info': [], 'cost_time': end_time - start_time
+        }))
 
     # 根据id, 读取图像
     slide = get_slide(image_id, get_path(image_id))
