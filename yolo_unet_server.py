@@ -128,11 +128,13 @@ def cell_image_request(image_id, x, y, w, h):
     start_time = time.time()
 
     # 判断框选区域的图像的是否太小
-    if int(w) < 10 or int(h) < 10:
+    if int(w) < 10 or int(h) < 10 or int(w) > 3000 or int(h) > 3000:
         end_time = time.time()
         # 直接返回空信息
         return make_response(jsonify({
-            'contours_info': [], 'cost_time': end_time - start_time
+            'contours_info': [],
+            'msg': '面积过小或过大！',
+            'cost_time': end_time - start_time
         }))
 
     # 根据id, 读取图像
