@@ -51,17 +51,21 @@ class SCPatientView(APIView):
 
     def post(self, request):
 
-        # 不保存diagnose_label/img_id到数据库, 因为patient表不包含这两个字段
+        # 新建报告前没有病人的id, 因此获取到的是大图的id
+        img_id = request.data.get('id', None)
+        if not img_id:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '参数错误！'})
+
+        # 不保存diagnose_label/patient_id到数据库, 因为patient表不包含这两个字段
+        request.data.pop('id')
         try:
             diagnose_label = request.data.pop('diagnose_label')
-            img_id = request.data.pop('img_id')
         except Exception as e:
-            logger.error(e)
-            return Response(status=status.HTTP_400_BAD_REQUEST, data='参数错误！')
+            diagnose_label = None
 
         # 获取参数, 校验参数
         ser = SCPatientSerializer(data=request.data)
-        # 验证通过则保存, 否则返回错误
+        # 验证通过则保存病人的信息, 得到病人的id
         if ser.is_valid():
             ser.save()
         else:
@@ -86,16 +90,20 @@ class SCPatientView(APIView):
 
     def patch(self, request):
 
+        # 修改报告, 前端传来的大图的id
+        img_id = request.data.get('id', None)
+        if not img_id:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={'msg': '参数错误！'})
+
         # 不保存diagnose_label/img_id到数据库, 因为patient表不包含这两个字段
         try:
             diagnose_label = request.data.pop('diagnose_label')
         except Exception as e:
-            logger.error(e)
-            return Response(status=status.HTTP_400_BAD_REQUEST, data='参数错误！')
+            diagnose_label = None
 
         # 根据id, 查询数据库对象
         try:
-            patient = Patient.objects.get(id=request.data['id'], is_delete=False)
+            patient = Patient.objects.get(id=img_id, is_delete=False)
         except Patient.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
 
