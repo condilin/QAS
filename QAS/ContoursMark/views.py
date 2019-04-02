@@ -510,3 +510,27 @@ class DRegionView(APIView):
 
         return Response(status=status.HTTP_200_OK,
                         data={'msg': '删除整个区域成功！', 'gray_avg': gray_avg})
+
+
+class DAllRegionView(APIView):
+    """
+    delete: 物理删除一张大图中所有的区域坐标记录
+    """
+
+    def delete(self, request, pk):
+
+        # 根据大图id, 查询数据库对象
+        try:
+            # 获取大图没有逻辑删除的数据
+            image = Image.objects.get(id=pk, is_delete=False)
+        except Image.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
+
+        try:
+            # 根据大图, 再查询该大图下所有的区域, 并删除
+            image.regions.all().delete()
+        except Exception as e:
+            logger.error(e)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库删除失败！'})
+
+        return Response(status=status.HTTP_204_NO_CONTENT, data={'msg': '清空所有框选区域成功！', })
