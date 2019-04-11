@@ -162,7 +162,7 @@ class CImageView(APIView):
             return Response(status=status.HTTP_201_CREATED, data={'result': serialize.data})
 
 
-class CFOBImageView(APIView):
+class CPONImageView(APIView):
     """
     post: 新增前一条或后一条大图记录
     """
@@ -175,8 +175,8 @@ class CFOBImageView(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST, data="请输入正确的参数！")
 
         # 获取上一张或下一张大图的标志
-        front_or_back_flag = request.data.get('front_or_back_flag', None)
-        if front_or_back_flag not in ['front', 'next']:
+        previous_or_next_flag = request.data.get('previous_or_next_flag', None)
+        if previous_or_next_flag not in ['previous', 'next']:
             return Response(status=status.HTTP_400_BAD_REQUEST, data="请输入正确的参数！")
 
         # 根据当前大图id, 查询出当前大图所在的文件夹路径
@@ -195,7 +195,7 @@ class CFOBImageView(APIView):
         current_img_index = filter_img_list.index(current_img.file_name+current_img.suffix)
 
         # 保存当前大寿图的上一张大图
-        if front_or_back_flag == 'front':
+        if previous_or_next_flag == 'previous':
             # 如果索引为第一张, 则没有前一张
             if current_img_index == 0:
                 return Response(status=status.HTTP_200_OK, data={'result': {'id': None}})
