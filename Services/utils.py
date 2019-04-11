@@ -71,9 +71,6 @@ class PaddingTiles(object):
                 './Services/Yolo/padding_detect_img/screenshot_padding_{}_{}.png'.format(current_time, coord), res
             )
 
-            # 返回补边左上的像素, 用于
-
-
 def get_coord(file_name):
     """
     获取图像在框选区域中的坐标

@@ -127,10 +127,14 @@ class CImageView(APIView):
         file_name, suffix = os.path.splitext(os.path.basename(full_path))
         if not file_name:
             return Response(status=status.HTTP_400_BAD_REQUEST, data="请输入要打开的文件名！")
+        if suffix not in ['.kfb', '.TMAP', '.tif']:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data="文件后缀仅支持kfb,TMAP,tif类型！")
 
         # 判断该文件是否已存在于数据库中, 不存在则新增一条记录
-        image_select = Image.objects.filter(file_name=file_name, is_delete=False)
-
+        image_select = Image.objects.filter(
+            file_name=file_name, suffix=suffix,
+            storage_path=storage_path, is_delete=False
+        )
         if image_select:
             # 返回该大图的id
             return Response(status=status.HTTP_201_CREATED, data={'result': {'id': image_select[0].id}})
@@ -156,6 +160,100 @@ class CImageView(APIView):
             # 序列化返回
             serialize = SCUImageSerializer(image)
             return Response(status=status.HTTP_201_CREATED, data={'result': serialize.data})
+
+
+class CFOBImageView(APIView):
+    """
+    post: 新增前一条或后一条大图记录
+    """
+
+    def post(self, request):
+
+        # 获取当前大图的id
+        current_image_id = request.data.get('current_image_id', None)
+        if not current_image_id:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data="请输入正确的参数！")
+
+        # 获取上一张或下一张大图的标志
+        front_or_back_flag = request.data.get('front_or_back_flag', None)
+        if front_or_back_flag not in ['front', 'next']:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data="请输入正确的参数！")
+
+        # 根据当前大图id, 查询出当前大图所在的文件夹路径
+        try:
+            current_img = Image.objects.get(id=current_image_id, is_delete=False)
+        except Image.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'msg': '数据不存在！'})
+        # 根据当前文件夹的路径, 查询该文件夹中的所有其它的大图
+        all_img_list = os.listdir(current_img.storage_path)
+        # 筛选符合后缀的文件名(kfb/TMAP/tif)
+        filter_img_list = [img for img in all_img_list if img.endswith(('.kfb', '.TMAP', '.tif'))]
+        # 对文件名进行排序
+        filter_img_list.sort()
+
+        # 获取当前大图所在符合筛选条件列表中的位置
+        current_img_index = filter_img_list.index(current_img.file_name+current_img.suffix)
+
+        # 保存当前大寿图的上一张大图
+        if front_or_back_flag == 'front':
+            # 如果索引为第一张, 则没有前一张
+            if current_img_index == 0:
+                return Response(status=status.HTTP_200_OK, data={'result': {'id': None}})
+            else:
+                # 有前一张, 则保存该大图路径到数据库
+                previous_img_name = filter_img_list[current_img_index - 1]
+
+                # 获取前一张大图的文件名/后缀/全路径
+                file_name, suffix = os.path.splitext(previous_img_name)
+                full_path = os.path.join(current_img.storage_path, previous_img_name)
+
+        else:
+            # 如果索引为最后一张, 则没有后一张
+            if current_img_index == (len(filter_img_list) - 1):
+                return Response(status=status.HTTP_200_OK, data={'result': {'id': None}})
+            else:
+                # 有后一张, 则保存该大图路径到数据库
+                next_img_name = filter_img_list[current_img_index + 1]
+
+                # 获取后一张大图的文件名/后缀/全路径
+                file_name, suffix = os.path.splitext(next_img_name)
+                full_path = os.path.join(current_img.storage_path, next_img_name)
+
+        # 判断该文件是否已存在于数据库中, 不存在则新增一条记录
+        image_select = Image.objects.filter(
+            file_name=file_name, suffix=suffix,
+            storage_path=current_img.storage_path, is_delete=False
+        )
+        if image_select:
+            # 返回该大图的id
+            return Response(status=status.HTTP_201_CREATED, data={'result': {'id': image_select[0].id}})
+        else:
+            # ---- 获取文件的size ---- #
+            # 读取文件大小
+            byte_size = os.path.getsize(full_path)
+            m_size = round(byte_size / 1024 / 1024, 1)
+
+            # ---- 获取文件大小 ----- #
+            file_size = str(m_size) + 'M'
+
+            # ---- 获取当前时间 ----- #
+            last_open_time = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            # 创建记录
+            try:
+                previous_or_next_obj = Image.objects.create(
+                    file_name=file_name, suffix=suffix, file_size=file_size,
+                    storage_path=current_img.storage_path, last_open_time=last_open_time
+                )
+            except Exception as e:
+                logger.error('qas创建前/后一条记录出错！')
+                return Response(
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'msg': '数据库新增记录出错！'}
+                )
+
+            # 序列化返回
+            ser = SCUImageSerializer(previous_or_next_obj)
+            return Response(status=status.HTTP_201_CREATED, data={'result': ser.data})
 
 
 class SUDImageView(APIView):
